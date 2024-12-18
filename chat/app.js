@@ -34,8 +34,6 @@ nunjucks.configure("views", {
 // 데이터베이스 연결
 connect();
 
-app.use("/", pageRouter);
-
 // 미들웨어 연결
 app.use(morgan("dev"));
 app.use("/", express.static(path.join(__dirname, "public"))); // static 파일 경로
@@ -62,6 +60,8 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+app.use("/", pageRouter);
 
 // 404 오류
 app.use((req, res, next) => {

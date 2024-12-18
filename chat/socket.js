@@ -1,6 +1,7 @@
 // Socket.io 이용
 // socket.io 모듈 불러오기
 const SocketIO = require("socket.io");
+const { removeRoom } = require("./services");
 
 module.exports = (server, app, sessionMiddleWare) => {
   // 익스프레스 서버와 소켓io 연동
@@ -11,6 +12,12 @@ module.exports = (server, app, sessionMiddleWare) => {
   // 네임스페이스 부여: 같은 네임스페이스끼리만 데이터 교환
   const room = io.of("/room");
   const chat = io.of("/chat");
+
+  // 소켓과 세션미들웨어 연결
+  const wrap = (middleware) => (socket, next) =>
+    middleware(socket.request, {}, next);
+  // wrap(): 미들웨어에 req, res, next를 제공해 주는 함수
+  chat.use(wrap(sessionMiddleWare));
 
   // 이벤트 리스너 추가
   room.on("connection", (socket) => {
@@ -31,10 +38,34 @@ module.exports = (server, app, sessionMiddleWare) => {
     // 클라이언트로부터 메세지가 도착하면 발생
     socket.on("join", (message) => {
       socket.join(message);
+      socket.to(message).emit("join", {
+        user: "system",
+        chat: `${socket.request.session.color}님이 입장하셨습니다.`,
+      });
     });
     // 클라이언트와 연결이 종료된 경우
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log("chat 네임 스페이스 접속 해제");
+
+      const { referer } = socket.request.headers;
+      const roomId = new URL(referer).pathname.split("/").at(-1);
+
+      // discount가 일어난 방 아이디 가져오기
+      const currentRoom = chat.adapter.rooms.get(roomId);
+      // 현재 방 접속자 수 가져오기
+      const userCount = currentRoom?.size || 0;
+
+      if (userCount == 0) {
+        await removeRoom(roomId);
+        // 삭제된 방 정보 보내기
+        room.emit("removeRoom", roomId);
+      } else {
+        // 퇴장 메세지 전송하기
+        socket.to(roomId).emit("exit", {
+          user: "system",
+          chat: `${socket.request.session.color}님이 퇴장하셨습니다.`,
+        });
+      }
     });
   });
 };

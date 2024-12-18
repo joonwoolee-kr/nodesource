@@ -5,7 +5,7 @@ const { MONGO_ID, MONGO_PASSWORD, NODE_ENV } = process.env;
 
 // 개발 시 모든 로그는 debug 모드로 작성
 const conn = () => {
-  if (process.env.NODE_ENV !== "production") {
+  if (NODE_ENV !== "production") {
     mongoose.set("debug", true);
   }
   // Set up default mongoose connection
